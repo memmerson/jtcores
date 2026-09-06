@@ -1,6 +1,6 @@
 # Wardner (Toaplan TP-009 / Taito B25, 1987) — jtcores bring-up plan
 
-Status: **planning only. No HDL written. Awaiting sign-off.**
+Status: **planning only. No HDL written.** Signed off 2026-09-06 — see §10.
 
 Evidence discipline used throughout:
 
@@ -655,7 +655,7 @@ seriously as a self-contained project with its own oracle, and for not starting 
 - **It is reusable beyond Toaplan.** The TMS320C1x turns up in the BSMT2000 (whence
   srg320's original), in Taito's and Konami's later boards, and elsewhere. A
   GPL-3.0-or-later TMS320C10 with a MAME-verified trace suite is a genuinely useful
-  contribution to jtcores as a `modules/jttms320` sibling of `jtdsp16`.
+  contribution to jtcores as a `jt32010` module, a sibling of `jtdsp16` (name follows `jt6295`/`jt7759`).
 
 ### The alternative: contribute the DSP to va7deo instead
 
@@ -665,7 +665,7 @@ different framework, not a DSP. And their framework is a different (non-jtframe)
 GPL-2.0, with hand-rolled SDRAM and no MRA-generation tooling.
 
 **[I]** Recommendation: build it in jtcores. Write the DSP as
-`modules/jttms320` from the start — a standalone, separately-testable, GPL-3.0-or-later
+a standalone `jt32010` repository from the start, in the `jtdsp16` pattern — a standalone, separately-testable, GPL-3.0-or-later
 module with its own testbench — so that even if the Wardner core stalls, the DSP is a
 finished, useful artifact. That structure also makes it trivially droppable if
 srg320's licence comes through and you decide to swap implementations.
@@ -684,3 +684,29 @@ srg320's licence comes through and you decide to swap implementations.
 4. **ROM dump:** needed before phase 3. Parent `wardner` set.
 5. Do you want me to open the licence issue on `srg320/TMS320C1X` and the core
    proposal with jotego, or will you?
+
+---
+
+## 10. Decisions taken (2026-09-06)
+
+| Question | Decision | Consequence |
+|---|---|---|
+| DSP route | **B — write a fresh TMS320C10.** Licence request to srg320 sent in parallel. | Phase 1 is a from-scratch CPU. If a licence lands before phase 3, route A remains an option. |
+| PLL | **Default `jtframe_pll6000`**, fractional cens on the 14 MHz domain. | All targets remain buildable. `pll7000` not used. |
+| Naming | **Board-generic module names** from day one. | Core folder stays `wardner`; HDL modules are `jttoaplan1_*` (subject to jotego's preference). The DSP is a standalone `jt32010` repo. |
+
+Two drafts accompany this decision, both awaiting the author's review before posting:
+
+- `msg-srg320-licence.md` — licence request for `srg320/TMS320C1X`
+- `msg-jotego-proposal.md` — core proposal for `jotego/jtcores`
+
+### CI note for phase 3 **[V]**
+
+`lint-all.sh` iterates every directory under `cores/` and `lint-one.sh` skips only
+when `cfg/macros.def` is absent or `cfg/skip` exists. The compile matrices in
+`q13.yaml`, `q20.yaml`, `pocket.yaml` and `debug-builds.yaml` use the same test.
+So the docs-only `cores/wardner/` is invisible to CI today, but **the commit that
+adds `cfg/macros.def` puts `wardner` into the linter and every compile matrix.**
+Add `cfg/skip` in that same commit and remove it in the PR that makes the core lint
+clean. (Note: `memmerson/jtcores` currently has GitHub Actions disabled — zero
+workflow runs — so none of this fires on the fork until Actions is enabled.)
