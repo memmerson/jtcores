@@ -1,12 +1,17 @@
 [parse]
 sourcefile=[ "skykid.cpp" ]
 main_setnames=["drgnbstr"]
-# Sky Kid is ROT180 and needs the whole output rotated, not supported yet
-skip={ machines=["skykid"] }
 
 [buttons]
 names=[
 	{ machine="drgnbstr", names="Attack,Jump" },
+	{ machine="skykid",   names="Shot,Loop" },
+]
+
+[header]
+registers = [
+	# Sky Kid runs with the board flipped and MAME rotates the output 180 degrees
+	{ name="rot180", pos="1[0]", values=[{machines=["skykid"], value=1}], desc="Rotate the output 180 degrees" },
 ]
 
 [dipsw]
@@ -16,6 +21,11 @@ offset=[
 	{ name="DSWA",    value=0  },
 	{ name="DSWB",    value=8  },
 	{ name="BUTTON2", value=16 },
+]
+# Sky Kid has no switches on BUTTON2, so its two unused inputs would default
+# to 0, which the game reads as pressed and boots into the test screen
+defaults=[
+	{ machine="skykid", value="ff,ff,ff" },
 ]
 
 [ROM]
@@ -37,6 +47,14 @@ regions = [
 		{name="db1_7.10m", crc="cc130fe2", offset=0x2000, length=0x2000},
 		{name="db1_7.10m", crc="cc130fe2", offset=0x0000, length=0x2000},
 		{name="db1_7.10m", crc="cc130fe2", offset=0x0000, length=0x2000},
+	]},
+	{ name="sprites", start="JTFRAME_BA3_START", machine="skykid", parts=[
+		{name="sk1_8.10n", crc="44bb7375", offset=0x0000, length=0x2000},
+		{name="sk1_8.10n", crc="44bb7375", offset=0x2000, length=0x2000},
+		{name="sk1_7.10m", crc="3454671d", offset=0x2000, length=0x2000},
+		{name="sk1_7.10m", crc="3454671d", offset=0x2000, length=0x2000},
+		{name="sk1_7.10m", crc="3454671d", offset=0x0000, length=0x2000},
+		{name="sk1_7.10m", crc="3454671d", offset=0x0000, length=0x2000},
 	]},
 	{ name="mcu",     start="JTFRAME_PROM_START"  },
 	{ name="proms"                                },

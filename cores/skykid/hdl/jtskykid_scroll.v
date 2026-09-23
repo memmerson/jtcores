@@ -6,7 +6,7 @@
 // code and attribute are 0x800 apart, so each tile needs two VRAM reads
 // see bg_get_tile_info in skykid.cpp
 module jtskykid_scroll(
-    input               clk, pxl_cen, flip,
+    input               clk, pxl_cen, flip, rot,
     input        [ 8:0] hdump, vdump,
     input        [ 8:0] scrx,
     input        [ 7:0] scry,
@@ -31,14 +31,24 @@ parameter [7:0] VSCR = 8'd25;
 
 wire [ 8:0] hadj = hdump - HOFFSET;
 wire [ 8:0] vadj = vdump - VOFFSET;
-// When flipped, MAME maps screen x to map column 476-x-(scrx^1) and screen
-// y to 230-y-scry. The pipeline walks the inverted column, which grows with
-// x, so the fetch order is the same and only the pixel order is reversed.
-wire [ 8:0] walk = flip ? hadj + {scrx[8:1],~scrx[0]} + HSCR
-                        : hadj + scrx + HSCR;
-wire [ 7:0] vmap = flip ? 8'd230 - vadj[7:0] - scry
-                        : vadj[7:0] + scry + VSCR;
+// Map column/row for each screen pixel. When flipped, MAME uses 476-x-(scrx^1)
+// and 230-y-scry. rot adds MAME's 180 degree rotation on top of that. When the
+// column decreases with x, the pipeline walks its inverse, which grows with x,
+// so the fetch order is unchanged and only the pixel order is reversed.
+wire        rev  = flip ^ rot;
+wire [ 8:0] sx   = flip ? {scrx[8:1],~scrx[0]} : scrx;
+wire [ 8:0] walk = rot ? hadj - sx + 9'd189 : hadj + sx + HSCR;
+reg  [ 7:0] vmap;
 wire [ 2:0] ph   = walk[2:0];
+
+always @* begin
+    case( {rot,flip} )
+        2'b00: vmap = vadj[7:0] + scry + VSCR;
+        2'b01: vmap = 8'd230 - vadj[7:0] - scry;
+        2'b10: vmap = 8'd248 - vadj[7:0] + scry;
+        2'b11: vmap = vadj[7:0] - scry + 8'd7;
+    endcase
+end
 
 wire [ 7:0] vbyte = idx[0] ? vram_dout[15:8] : vram_dout[7:0];
 reg  [10:0] idx;
@@ -48,7 +58,7 @@ reg         rom_good;
 
 // fetch for the next tile, it is shifted out while the following one is fetched
 wire [ 8:0] wnx = walk + 9'd8;
-wire [ 8:0] hnx = flip ? ~wnx : wnx;
+wire [ 8:0] hnx = rev ? ~wnx : wnx;
 always @* idx = { vmap[7:3], hnx[8:3] };
 
 assign pxl = shift[1:0];
@@ -80,7 +90,7 @@ always @(posedge clk) begin
         endcase
         if( ph==7 ) begin
             pal   <= { attr_b[0], attr_b[6:1] };          // (attr&0x7e)>>1 | (attr&1)<<6
-            shift <= flip ?
+            shift <= rev ?
                      { tpx(rom_buf[ 7:0],2'd0), tpx(rom_buf[ 7:0],2'd1),
                        tpx(rom_buf[ 7:0],2'd2), tpx(rom_buf[ 7:0],2'd3),
                        tpx(rom_buf[15:8],2'd0), tpx(rom_buf[15:8],2'd1),

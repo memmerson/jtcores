@@ -6,7 +6,7 @@
 // the same layout as Pac-Land. See draw_sprites in skykid.cpp
 module jtskykid_objscan(
     input             clk, hs, blankn,
-    input             flip,
+    input             flip, rot,
     input      [ 8:0] vrender,
 
     output reg [ 8:0] code,
@@ -27,6 +27,9 @@ module jtskykid_objscan(
 
 localparam [8:0] XOS=9'h1fa;    // -6, verified against MAME
 localparam [7:0] YOS=8'd24;     // verified against MAME
+// rot mirrors the positions on screen, see the rotated set in mame2mra.toml
+localparam [8:0] XROT=9'd418;
+localparam [7:0] YROT=8'd2;
 localparam    HLARGE=1'b1;
 
 reg  [7:0] y;
@@ -61,10 +64,14 @@ always @(posedge clk) if(cen) begin
         0: { pal, code[7:0] } <= ram_dout[13:0];
         1: { hpos[7:0], y }   <= ram_dout;
         2: begin
-            // flip toggles each sprite's own flips, positions are left alone
-            { code[8], vsize, hsize, vflip, hflip } <= {ram_dout[7],ram_dout[3:2],ram_dout[1:0]^{2{flip}}};
-            y    <= y + YOS + (ram_dout[3] ? 8'd16 : 8'd0);
-            hpos <= {ram_dout[8],hpos[7:0]} + XOS;
+            // flip toggles each sprite's own flips, positions are left alone.
+            // rot mirrors the positions and toggles the flips again
+            { code[8], vsize, hsize } <= {ram_dout[7],ram_dout[3:2]};
+            { vflip, hflip } <= ram_dout[1:0]^{2{flip^rot}};
+            y    <= rot ? YROT + (ram_dout[3] ? 8'd32 : 8'd16) - (y + YOS + (ram_dout[3] ? 8'd16 : 8'd0))
+                        :                                          y + YOS + (ram_dout[3] ? 8'd16 : 8'd0);
+            hpos <= rot ? XROT - ({ram_dout[8],hpos[7:0]} + XOS) - (ram_dout[2] ? 9'd32 : 9'd16)
+                        :         {ram_dout[8],hpos[7:0]} + XOS;
         end
         3: if(!dr_busy && !dr_draw && inzone) begin
             ysub <= nx_ysub;

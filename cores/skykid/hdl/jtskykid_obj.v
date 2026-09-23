@@ -7,7 +7,7 @@
 // that, and no third plane at all from code 256 up. See init_skykid.
 module jtskykid_obj(
     input             rst,
-    input             clk, pxl_cen, hs, lvbl, flip,
+    input             clk, pxl_cen, hs, lvbl, flip, rot,
     input      [ 8:0] hdump, vdump,
 
     // Look-up table
@@ -68,6 +68,7 @@ jtskykid_objscan u_scan(
     .hs         ( hs        ),
     .blankn     ( blankn    ),
     .flip       ( flip      ),
+    .rot        ( rot       ),
     .vrender    ( vdump     ),
 
     .code       ( code      ),

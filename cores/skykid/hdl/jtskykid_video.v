@@ -5,7 +5,7 @@
 module jtskykid_video(
     input             rst,
     input             clk,
-    input             pxl_cen, pxl2_cen, flip,
+    input             pxl_cen, pxl2_cen, flip, rot,
 
     output            lvbl, lhbl, hs, vs,
     input      [ 7:0] pri,
@@ -82,6 +82,7 @@ jtskykid_obj u_obj(
     .hs         ( hs            ),
     .lvbl       ( lvbl          ),
     .flip       ( flip          ),
+    .rot        ( rot           ),
     .hdump      ( hdump         ),
     .vdump      ( vdump         ),
 
@@ -120,6 +121,7 @@ jtskykid_scroll u_scroll(
     .clk        ( clk           ),
     .pxl_cen    ( pxl_cen       ),
     .flip       ( flip          ),
+    .rot        ( rot           ),
     .hdump      ( hdump         ),
     .vdump      ( vdump         ),
     .scrx       ( scrx          ),
@@ -140,7 +142,7 @@ jtskykid_scroll u_scroll(
 jtskykid_text u_text(
     .clk        ( clk           ),
     .pxl_cen    ( pxl_cen       ),
-    .flip       ( flip          ),
+    .flip       ( flip ^ rot    ),   // rotating a flipped screen gives a normal one
     .hdump      ( hdump         ),
     .vdump      ( vdump         ),
 

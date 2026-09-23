@@ -13,7 +13,7 @@ wire [ 7:0] st_main, c30_dout, st_video, pri;
 wire [ 8:0] scrx;
 wire [ 7:0] scry;
 wire        cen_E, cen_Q, cen_mcu, flip, srst,
-            mc30_cs, mcu_seln, cpu_rnw;
+            mc30_cs, mcu_seln, cpu_rnw, rot180;
 reg         lvbl_ps;
 
 assign debug_view = dbg_mux;
@@ -29,6 +29,15 @@ always @* begin
         default: dbg_mux = 0;
     endcase
 end
+
+jtskykid_header u_header(
+    .clk        ( clk       ),
+    .header     ( header    ),
+    .prog_we    ( prog_we   ),
+    .prog_addr  ( prog_addr[2:0] ),
+    .prog_data  ( prog_data[7:0] ),
+    .rot180     ( rot180    )
+);
 
 jtthundr_cenloop u_cen(
     .rst        ( rst       ),
@@ -134,6 +143,7 @@ jtskykid_video u_video(
     .pxl_cen    ( pxl_cen   ),
     .pxl2_cen   ( pxl2_cen  ),
     .flip       ( flip      ),
+    .rot        ( rot180    ),
     .scrx       ( scrx      ),
     .scry       ( scry      ),
     .pri        ( pri       ),
