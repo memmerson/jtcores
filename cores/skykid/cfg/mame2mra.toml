@@ -1,0 +1,45 @@
+[parse]
+sourcefile=[ "skykid.cpp" ]
+main_setnames=["drgnbstr"]
+# Sky Kid is ROT180 and needs the whole output rotated, not supported yet
+skip={ machines=["skykid"] }
+
+[buttons]
+names=[
+	{ machine="drgnbstr", names="Attack,Jump" },
+]
+
+[dipsw]
+# MAME lists the ports alphabetically, which would put BUTTON2 first.
+# Pin them to the layout jtskykid_cab reads.
+offset=[
+	{ name="DSWA",    value=0  },
+	{ name="DSWB",    value=8  },
+	{ name="BUTTON2", value=16 },
+]
+
+[ROM]
+regions = [
+	# 0x8000-0xffff static, 0x10000-0x13fff banked as 2x8kB
+	{ name="maincpu", no_offset=true              },
+	{ name="mcusub",  start="JTFRAME_BA1_START"   },
+	{ name="chars",   start="JTFRAME_BA2_START"   },
+	{ name="tiles",   start="BG_START"            },
+	# init_skykid unpacks the third plane at run time. The same layout is
+	# built here instead: tiles 0-255 come from the first ROM, tiles 256-511
+	# from the upper half of the second one (twice, as MAME does), and the
+	# third plane from its lower half, streamed twice. The nibble is picked
+	# in the HDL, and tiles 256-511 have no third plane at all.
+	{ name="sprites", start="JTFRAME_BA3_START", setname="drgnbstr", parts=[
+		{name="db1_8.10n", crc="11942c61", offset=0x0000, length=0x2000},
+		{name="db1_8.10n", crc="11942c61", offset=0x2000, length=0x2000},
+		{name="db1_7.10m", crc="cc130fe2", offset=0x2000, length=0x2000},
+		{name="db1_7.10m", crc="cc130fe2", offset=0x2000, length=0x2000},
+		{name="db1_7.10m", crc="cc130fe2", offset=0x0000, length=0x2000},
+		{name="db1_7.10m", crc="cc130fe2", offset=0x0000, length=0x2000},
+	]},
+	{ name="mcu",     start="JTFRAME_PROM_START"  },
+	{ name="proms"                                },
+]
+
+order=["maincpu","mcusub","chars","tiles","sprites","mcu","proms"]
