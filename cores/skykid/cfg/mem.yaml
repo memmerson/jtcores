@@ -16,63 +16,62 @@ ports:
 sdram:
   banks:
     - buses:
-      - name: main          # 0x8000-0xffff static + 2x8kB banked
+      - name: main
         addr_width: 16
         data_width: 8
     - buses:
-      - name: mcusub        # MCU external program, 8kB
+      - name: mcusub
         addr_width: 13
         data_width: 8
     - buses:
-      - name: scr0          # text layer characters, 2bpp
+      - name: scr0
         addr_width: 13
         data_width: 16
         gfx_sort: hvvv
-      - name: scr1          # background tiles, 2bpp, rows already adjacent
+      - name: scr1
         addr_width: 13
         data_width: 16
         offset: BG_OFFSET
     - buses:
-      - name: obj           # sprites, planes 1 and 2
+      - name: obj
         addr_width: 15
         data_width: 16
         gfx_sort: hvvv
-      - name: obj2          # sprite third plane, tiles 0-255 only
-        addr_width: 14
+      - name: obj2
+        addr_width: 13
         data_width: 16
         offset: OBJ2_OFFSET
         gfx_sort: hvvv
 bram:
   # PROM order here must match the MRA order
-  - name: mcu               # HD63701 internal ROM (CUS60/CUS63)
+  - name: mcu
     addr_width: 12
     data_width: 8
     prom: true
-  - name: rpal              # red, 4 bits
+  - name: rpal
     addr_width: 8
     data_width: 8
     addr: rgb_addr
     prom: true
-  - name: gpal              # green, 4 bits
+  - name: gpal
     addr_width: 8
     data_width: 8
     addr: rgb_addr
     prom: true
-  - name: bpal              # blue, 4 bits
+  - name: bpal
     addr_width: 8
     data_width: 8
     addr: rgb_addr
     prom: true
-  - name: scrpal            # tile colour lookup
+  - name: scrpal
     addr_width: 9
     data_width: 8
     prom: true
-  - name: objpal            # sprite colour lookup
+  - name: objpal
     addr_width: 9
     data_width: 8
     prom: true
-  # Video RAM
-  - name: vram1             # background, 0x2000-0x2fff (code + attribute)
+  - name: vram1
     addr_width: 12
     data_width: 16
     simfile: {}
@@ -83,7 +82,7 @@ bram:
       dout: bg_dout
       rw:   true
     ioctl: { save: true, order: 0 }
-  - name: vram0             # text, 0x4000-0x47ff (code + attribute)
+  - name: vram0
     addr_width: 11
     data_width: 16
     simfile: {}
@@ -94,7 +93,7 @@ bram:
       dout: tx_dout
       rw:   true
     ioctl: { save: true, order: 1 }
-  - name: oram              # sprite RAM, 0x4800-0x5fff
+  - name: oram
     addr_width: 13
     data_width: 16
     dual_port:

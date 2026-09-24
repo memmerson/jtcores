@@ -2,9 +2,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  * Date: 23-9-2026 */
 
-// Text layer: 36x28, no scroll, non linear scan
-// see tx_tilemap_scan and tx_get_tile_info in skykid.cpp
-// code and attribute are 0x400 apart, so each tile needs two VRAM reads
 module jtskykid_text(
     input               clk, pxl_cen, flip,
     input        [ 8:0] hdump, vdump,
@@ -22,13 +19,11 @@ module jtskykid_text(
     output       [ 1:0] pxl
 );
 
-parameter [8:0] HOFFSET = 9'h041,   // first visible pixel
-                VOFFSET = 9'h110;   // first visible line
+parameter [8:0] HOFFSET = 9'h041,
+                VOFFSET = 9'h110;
 
 wire [ 8:0] hadj   = hdump - HOFFSET;
 wire [ 8:0] vadj   = vdump - VOFFSET;
-// flipped: the tile position is mirrored, the pixels within it are not,
-// as the second character set holds the flipped graphics
 wire [ 5:0] scol   = hadj[8:3]+6'd1;
 wire [ 5:0] col_nx = flip ? 6'd35-scol : scol;
 wire [ 4:0] row    = flip ? 5'd27-vadj[7:3] : vadj[7:3];
@@ -41,8 +36,6 @@ reg  [ 7:0] code_b, attr_b;
 reg  [15:0] shift, rom_buf;
 reg         rom_good;
 
-// MAME: row += 2; col -= 2; the two columns at each side are stored
-// in column-major order, the centre of the screen in row-major order
 always @* begin
     c6  = col_nx - 6'd2;
     r5  = row    + 5'd2;
@@ -52,7 +45,6 @@ end
 
 assign pxl = shift[1:0];
 
-// plane 0 is the MSB side of the nibble, see the gfx_layout planes {0,4}
 function [1:0] tpx(input [7:0] b, input [1:0] k);
     tpx = { b[7-k], b[3-k] };
 endfunction
@@ -65,15 +57,15 @@ always @(posedge clk) begin
     end
     if( pxl_cen ) begin
         case( ph )
-            0: vram_addr <= {1'b0, idx[9:1]};              // code
+            0: vram_addr <= {1'b0, idx[9:1]};
             1: begin
                 code_b    <= idx[0] ? vram_dout[15:8] : vram_dout[7:0];
-                vram_addr <= {1'b1, idx[9:1]};             // attribute
+                vram_addr <= {1'b1, idx[9:1]};
             end
             2: begin
                 attr_b   <= idx[0] ? vram_dout[15:8] : vram_dout[7:0];
                 rom_addr <= { flip, code_b, vadj[2:0] };
-                rom_good <= 0;                             // request the new tile
+                rom_good <= 0;
             end
             default:;
         endcase

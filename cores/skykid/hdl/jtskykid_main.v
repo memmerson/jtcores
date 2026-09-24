@@ -6,7 +6,8 @@ module jtskykid_main(
     input               rst, clk,
                         cen_E, cen_Q, lvbl,
 
-    output              flip, srst,
+    output reg          flip,
+    output              srst,
     output reg   [ 7:0] pri,
 
     output       [ 7:0] cpu_dout,
@@ -36,16 +37,14 @@ module jtskykid_main(
 );
 `ifndef NOMAIN
 wire [ 7:0] cpu_din;
-reg         flip_l, bank;
-wire        int_n, avma, rst_n, ok_dly,
+reg         bank;
+wire        int_n, avma, rst_n,
             vram0_cs, vram1_cs, oram_cs, banked_cs,
             scrx_cs, scry_cs, bank_cs, pri_cs, wdog_cs;
 
-assign flip     = flip_l;
-assign st_dout  = {flip_l,bank,pri[5:0]};
-// 8000~FFFF is the static half, the banked window lives above it
+assign st_dout  = {flip,bank,pri[5:0]};
 assign rom_addr = banked_cs ? {2'b10, bank, cpu_addr[12:0]} : {1'b0, cpu_addr[14:0]};
-assign bus_busy = rom_cs & ~ok_dly;
+assign bus_busy = rom_cs & ~rom_ok;
 assign vram0_we = {2{vram0_cs & ~rnw}} & {cpu_addr[0],~cpu_addr[0]};
 assign vram1_we = {2{vram1_cs & ~rnw}} & {cpu_addr[0],~cpu_addr[0]};
 assign oram_we  = {2{oram_cs  & ~rnw}} & {cpu_addr[0],~cpu_addr[0]};
@@ -56,16 +55,12 @@ assign cpu_din  = rom_cs   ? rom_data  :
                   oram_cs  ? (cpu_addr[0] ?  oram_dout[15:8] :  oram_dout[7:0]) :
                   c30_cs   ? c30_dout  : 8'd0;
 
-assign ok_dly   = rom_ok;
-
-// scroll registers take their value from the address bus, and the
-// priority write carries flip on A0. See skykid.cpp
 always @(posedge clk) begin
     if( rst ) begin
         scrx   <= 0;
         scry   <= 0;
         pri    <= 0;
-        flip_l <= 0;
+        flip   <= 0;
         bank   <= 0;
     end else begin
         if( scrx_cs ) scrx   <= cpu_addr[8:0];
@@ -73,7 +68,7 @@ always @(posedge clk) begin
         if( bank_cs ) bank   <= ~cpu_addr[11];
         if( pri_cs  ) begin
             pri    <= cpu_dout;
-            flip_l <= cpu_addr[0];
+            flip   <= cpu_addr[0];
         end
     end
 end
@@ -128,8 +123,8 @@ mc6809i u_cpu(
     .RegData    (           )
 );
 `else
-initial pri=0, scrx=0, scry=0;
-assign srst=0, flip=0, cpu_dout=0, cpu_addr=0, rnw=1,
+initial pri=0, scrx=0, scry=0, flip=0;
+assign srst=0, cpu_dout=0, cpu_addr=0, rnw=1,
        vram0_we=0, vram1_we=0, oram_we=0,
        rom_addr=0, rom_cs=0, bus_busy=0, c30_cs=0, st_dout=0;
 `endif

@@ -2,9 +2,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  * Date: 23-9-2026 */
 
-// 3bpp sprites. Planes 1 and 2 come packed as nibble pairs on the obj bus,
-// the third plane on obj2: high nibble for codes 128-255, low nibble below
-// that, and no third plane at all from code 256 up. See init_skykid.
 module jtskykid_obj(
     input             rst,
     input             clk, pxl_cen, hs, lvbl, flip, rot,
@@ -22,7 +19,7 @@ module jtskykid_obj(
     input      [15:0] rom_data,
     input             rom_ok,
     output            rom2_cs,
-    output     [13:1] rom2_addr,
+    output     [12:1] rom2_addr,
     input      [15:0] rom2_data,
 
     output     [ 7:0] pxl,
@@ -45,13 +42,10 @@ wire [ 8:0] code_eff = { addr_hi[8:2],
     vsize ? ysub[4]^vflip : addr_hi[1],     // V16
     hsize ?    hmsb^hflip : addr_hi[0] };   // H16
 
-// the sort makes the two bytes of a row adjacent, see gfx_sort in mem.yaml
-assign rom_addr  = { code_eff, addr_v[3], addr_h, addr_v[2:0] };
-assign rom2_addr = rom_addr[13:1];
+assign rom_addr  = { code_eff[8], code_eff[8]|code_eff[7], code_eff[6:0], addr_v[3], addr_h, addr_v[2:0] };
+assign rom2_addr = rom_addr[12:1];
 assign rom2_cs   = rom_cs;
 
-// {plane3, plane2, plane1, plane0}, 8 pixels each. jtframe_draw takes the
-// leftmost pixel from bit 0 and shifts right, so the nibbles are reversed here
 wire [7:0] lo = rom_data [ 7:0], hi = rom_data [15:8];
 wire [7:0] l2 = rom2_data[ 7:0], h2 = rom2_data[15:8];
 wire [7:0] p0 = { hi[0],hi[1],hi[2],hi[3], lo[0],lo[1],lo[2],lo[3] };
@@ -90,8 +84,6 @@ jtskykid_objscan u_scan(
     .debug_bus  ( debug_bus )
 );
 
-// PW is palette width + 4: the module always works with 4bpp pixels,
-// so the 3bpp value is padded and bit 3 dropped when indexing the PROM
 jtframe_objdraw_gate #(.CW(9),.PW(10),.LATCH(1),
     .HFIX(0),.SWAPH(0),
     .ALPHA(255),
@@ -102,7 +94,7 @@ jtframe_objdraw_gate #(.CW(9),.PW(10),.LATCH(1),
     .clk        ( clk       ),
     .pxl_cen    ( pxl_cen   ),
     .hs         ( hs        ),
-    .flip       ( 1'b0      ),      // the board does not mirror positions
+    .flip       ( 1'b0      ),
     .hdump      ( hdump     ),
 
     .draw       ( dr_draw   ),

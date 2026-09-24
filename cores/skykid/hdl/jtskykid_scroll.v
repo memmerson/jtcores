@@ -2,9 +2,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  * Date: 23-9-2026 */
 
-// Background: 64x32 tilemap, 8x8 2bpp, single scroll
-// code and attribute are 0x800 apart, so each tile needs two VRAM reads
-// see bg_get_tile_info in skykid.cpp
 module jtskykid_scroll(
     input               clk, pxl_cen, flip, rot,
     input        [ 8:0] hdump, vdump,
@@ -25,16 +22,11 @@ module jtskykid_scroll(
 
 parameter [8:0] HOFFSET = 9'h041,
                 VOFFSET = 9'h110;
-// MAME adds these to the register value, see screen_update
 parameter [8:0] HSCR = 9'd35;
 parameter [7:0] VSCR = 8'd25;
 
 wire [ 8:0] hadj = hdump - HOFFSET;
 wire [ 8:0] vadj = vdump - VOFFSET;
-// Map column/row for each screen pixel. When flipped, MAME uses 476-x-(scrx^1)
-// and 230-y-scry. rot adds MAME's 180 degree rotation on top of that. When the
-// column decreases with x, the pipeline walks its inverse, which grows with x,
-// so the fetch order is unchanged and only the pixel order is reversed.
 wire        rev  = flip ^ rot;
 wire [ 8:0] sx   = flip ? {scrx[8:1],~scrx[0]} : scrx;
 wire [ 8:0] walk = rot ? hadj - sx + 9'd189 : hadj + sx + HSCR;
@@ -56,14 +48,12 @@ reg  [ 7:0] code_b, attr_b;
 reg  [15:0] shift, rom_buf;
 reg         rom_good;
 
-// fetch for the next tile, it is shifted out while the following one is fetched
 wire [ 8:0] wnx = walk + 9'd8;
 wire [ 8:0] hnx = rev ? ~wnx : wnx;
 always @* idx = { vmap[7:3], hnx[8:3] };
 
 assign pxl = shift[1:0];
 
-// plane 0 is the MSB of the pixel, see the gfx_layout planes {0,4}
 function [1:0] tpx(input [7:0] b, input [1:0] k);
     tpx = { b[7-k], b[3-k] };
 endfunction
@@ -76,20 +66,20 @@ always @(posedge clk) begin
     end
     if( pxl_cen ) begin
         case( ph )
-            0: vram_addr <= {1'b0, idx[10:1]};            // code
+            0: vram_addr <= {1'b0, idx[10:1]};
             1: begin
                 code_b    <= vbyte;
-                vram_addr <= {1'b1, idx[10:1]};           // attribute
+                vram_addr <= {1'b1, idx[10:1]};
             end
             2: begin
                 attr_b   <= vbyte;
-                rom_addr <= { vbyte[0], code_b, vmap[2:0] }; // attr bit 0 is code bit 8
+                rom_addr <= { vbyte[0], code_b, vmap[2:0] };
                 rom_good <= 0;
             end
             default:;
         endcase
         if( ph==7 ) begin
-            pal   <= { attr_b[0], attr_b[6:1] };          // (attr&0x7e)>>1 | (attr&1)<<6
+            pal   <= { attr_b[0], attr_b[6:1] };
             shift <= rev ?
                      { tpx(rom_buf[ 7:0],2'd0), tpx(rom_buf[ 7:0],2'd1),
                        tpx(rom_buf[ 7:0],2'd2), tpx(rom_buf[ 7:0],2'd3),

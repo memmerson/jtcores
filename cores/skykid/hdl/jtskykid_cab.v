@@ -2,9 +2,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  * Date: 23-9-2026 */
 
-// Inputs are read through MCU port 1. The source is selected by writing
-// 0x60|n to the same port, see inputport_select_w/inputport_r in skykid.cpp
-// dipsw follows the MAME port layout: [7:0]=DSWA, [15:8]=DSWB, [19:16]=BUTTON2
 module jtskykid_cab(
     input               clk,
 
@@ -25,9 +22,9 @@ reg [2:0] sel=0;
 always @(posedge clk) begin
     if( (p1_dout&8'he0)==8'h60 ) sel <= p1_dout[2:0];
     case(sel)
-        0: cab <= {UNUSED,dipsw[15:11]};            // (DSWB & 0xf8)>>3
-        1: cab <= {UNUSED,dipsw[10:8],dipsw[7:6]};  // (DSWB & 7)<<2 | (DSWA & 0xc0)>>6
-        2: cab <= {UNUSED,dipsw[ 5:1]};             // (DSWA & 0x3e)>>1
+        0: cab <= {UNUSED,dipsw[15:11]};
+        1: cab <= {UNUSED,dipsw[10:8],dipsw[7:6]};
+        2: cab <= {UNUSED,dipsw[ 5:1]};
         3: cab <= {UNUSED,dipsw[0],joystick1[B1],joystick2[B1],dipsw[17:16]};
         4: cab <= {UNUSED,cab_1p,coin,service};
         5: cab <= {UNUSED,joystick2[B0],joystick2[UP],joystick2[DOWN],joystick2[RIGHT],joystick2[LEFT]};

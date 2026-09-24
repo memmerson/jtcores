@@ -2,7 +2,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  * Date: 23-9-2026 */
 
-// Address decoder for the main CPU, see skykid.cpp main_map
 module jtskykid_dec(
     input          rst, clk,
                    rnw, lvbl,
@@ -38,17 +37,17 @@ always @* begin
     wdog_cs   = 0; scrx_cs  = 0; scry_cs = 0; irq_ctl = 0;
     bank_cs   = 0; pri_cs   = 0; srst_cs = 0; banked_cs = 0;
     casez(addr[15:12])
-        4'b000?: banked_cs = rnw;                  // 0000~1FFF banked ROM
-        4'b0010: vram1_cs  = 1;                    // 2000~2FFF background
+        4'b000?: banked_cs = rnw;                  // 0000~1FFF
+        4'b0010: vram1_cs  = 1;                    // 2000~2FFF
         4'b0100: begin
-            vram0_cs = ~addr[11];                  // 4000~47FF text
-            oram_cs  =  addr[11];                  // 4800~4FFF objects
+            vram0_cs = ~addr[11];                  // 4000~47FF
+            oram_cs  =  addr[11];                  // 4800~4FFF
         end
-        4'b0101: oram_cs = 1;                      // 5000~5FFF objects
+        4'b0101: oram_cs = 1;                      // 5000~5FFF
         4'b0110: begin
             if(!rnw) begin
-                scry_cs = addr[11:8]==4'h0;        // 6000~60FF value on the address
-                scrx_cs = addr[11:9]==3'b001;      // 6200~63FF value on the address
+                scry_cs = addr[11:8]==4'h0;        // 6000~60FF
+                scrx_cs = addr[11:9]==3'b001;      // 6200~63FF
             end
             c30_cs = addr[11:8]>=4'h8 && addr[11:8]<=4'hb; // 6800~6BFF
         end
@@ -56,9 +55,9 @@ always @* begin
             if(!rnw             ) irq_ctl = 1;     // 7xxx
             if( rnw && addr[11] ) wdog_cs = 1;     // 78xx
         end
-        4'b1000: if(!rnw) srst_cs = 1;             // 8xxx MCU reset
-        4'b1001: if(!rnw) bank_cs = 1;             // 9xxx ROM bank
-        4'b1010: if(!rnw) pri_cs  = 1;             // A000~A001 flip and priority
+        4'b1000: if(!rnw) srst_cs = 1;             // 8xxx
+        4'b1001: if(!rnw) bank_cs = 1;             // 9xxx
+        4'b1010: if(!rnw) pri_cs  = 1;             // A000~A001
         default:;
     endcase
     rom_cs = (addr[15] && rnw) || banked_cs;

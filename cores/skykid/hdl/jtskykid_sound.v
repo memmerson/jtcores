@@ -49,7 +49,7 @@ assign ram_din  = mcu_dout;
 assign rom_addr = A[12:0];
 
 always @(posedge clk) if(irq_ctl) irq_ack <= A[13];
-// Address decoder, see mcu_map in skykid.cpp
+// Address decoder
 always @(*) begin
     uc30_cs = vma && A[15:12]==1    && A[11:10]==0;          // 1000~13FF
     irq_ctl = vma && A[15:12]>=4'h4 && A[15:12]<=4'h7 && wr; // 4000~7FFF
@@ -103,7 +103,7 @@ jtframe_6801mcu #(.ROMW(12),.SLOW_FRC(2),.MODEL("HD63701V")) u_63701(
     .irq        ( irq           ),
     .nmi        ( 1'b0          ),
     // ports
-    .p1_din     ( cab_dout      ),  // inputs, selected by p1_dout
+    .p1_din     ( cab_dout      ),
     .p2_din     ( 5'h1f         ),
     .p3_din     ( 8'd0          ),
     .p4_din     ( 8'd0          ),

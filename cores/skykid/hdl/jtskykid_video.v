@@ -27,7 +27,7 @@ module jtskykid_video(
     input      [15:0] obj_data,
     input             obj_ok,
     output            obj2_cs,
-    output     [13:1] obj2_addr,
+    output     [12:1] obj2_addr,
     input      [15:0] obj2_data,
 
     // Palette PROMs
@@ -57,16 +57,11 @@ wire        txt_op;
 assign st_dout     = 0;
 assign scrpal_addr = { scr_pal, scr_pxl };
 
-// the text layer is transparent on colour 0, sprites on look-up value 0xff
 assign txt_op  = txt_pxl!=0    && gfx_en[0];
 assign obj_op  = obj_pxl!=8'hff && gfx_en[3];
-// baraduke-style category priority: when pri[2] is set, the text tiles whose
-// category matches pri[7:4] are drawn below the sprites, the rest above
 assign txt_low = txt_op && pri[2] && txt_cat==pri[7:4];
 assign txt_hi  = txt_op && !txt_low;
 
-// text pens index the colour PROMs directly, the background goes
-// through its look-up table. The background is always opaque.
 always @(posedge clk) if(pxl_cen) begin
     rgb_addr <= txt_hi  ? {txt_pal,txt_pxl} :
                 obj_op  ? obj_pxl           :
@@ -142,7 +137,7 @@ jtskykid_scroll u_scroll(
 jtskykid_text u_text(
     .clk        ( clk           ),
     .pxl_cen    ( pxl_cen       ),
-    .flip       ( flip ^ rot    ),   // rotating a flipped screen gives a normal one
+    .flip       ( flip ^ rot    ),
     .hdump      ( hdump         ),
     .vdump      ( vdump         ),
 
