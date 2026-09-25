@@ -189,45 +189,51 @@ Minimum set:
   (F7–F10), `st_addr`/`st_dout` for sys-info. Tie them off cleanly; they
   disappear under `JTFRAME_RELEASE`. See `doc/debug.md`.
 
-### What upstream review expects (learned from the Wardner and Baraduke reviews)
+### What upstream review expects
 
-These came up as review comments on submitted cores. Do them before
-submitting, not after.
+Submitted cores are reviewed against these points. Meet them before
+submitting rather than in review rounds.
 
-- **Use JTFRAME generics, adapt at the instance.** Tilemaps on
-  `jtframe_scroll`; sprite *drawing* on `jtframe_objdraw` (the core keeps
-  only its own scan); line buffers on `jtframe_obj_buffer`; interrupt edges
-  with `jtframe_edge`; Z80 through `jtframe_z80`, not `T80s` directly.
-  Absorb differences (ROM bit order, scroll offsets, flip) at the instance
-  rather than forking the generic. A `reg` array with two write ports is
-  built from logic by Quartus; the Wardner sprite buffer cost 42 % of the core
-  until it moved to `jtframe_obj_buffer`.
+- **Use JTFRAME's generic modules and adapt them at the instance.** Tilemaps
+  on `jtframe_scroll`; sprite *drawing* on `jtframe_objdraw` (the core keeps
+  only its hardware-specific scan); line buffers on `jtframe_obj_buffer`;
+  interrupt edges with `jtframe_edge`; Z80 through `jtframe_z80`, not `T80s`
+  directly. Handle differences (ROM bit order, scroll offsets, flip) in the
+  instance's inputs and parameters rather than forking the generic. A custom
+  engine needs evidence (e.g. a decap or schematic) that the hardware does
+  something the generic can't.
+- **Memories must map to block RAM.** A `reg` array with more than one write
+  port is built from logic by Quartus, and a hand-written line buffer can
+  easily take a large share of the core. Use the jtframe RAM modules.
 - **Every RAM in `mem.yaml`** (`bram:`), including CPU work RAM, shared RAM
   and tile/sprite/palette RAM; no hand-instantiated `jtframe_dual_ram` in
-  CPU modules. Register blocks go in `cfg/mmr.yaml`. Order `mem.yaml`
-  sections as `clocks`, `audio`, `sdram`, `bram`.
+  CPU modules. A RAM reached a byte at a time by one side and a word at a
+  time by the other is one 16-bit memory with byte write enables. Register
+  blocks go in `cfg/mmr.yaml`. Order `mem.yaml` sections as `clocks`,
+  `audio`, `sdram`, `bram`.
 - **Third-party CPUs/DSPs live in JTFRAME**, not as a new module or
   submodule: HDL and licence in `hdl/cpu/<name>`, a `jtframe_<cpu>.v`
   wrapper with the usual port names, and `cfg/cpu/jtframe_<cpu>.yaml` so a
-  core pulls it in with one line. Prefer an existing open-source core
-  (Wardner moved from a from-scratch TMS320C10 to IKA32010); mark local
-  fixes with a `jtcores:` comment and list them in the CPU's README.
+  core pulls it in with one line. Prefer an existing, licence-compatible
+  open-source core over writing a CPU from scratch; mark local fixes with a
+  `jtcores:` comment and list them in the CPU's README.
 - **CPU module style:** address decoding in one `always` block with
   `*_cs` names; the read mux as a `case`; synchronous resets; 16-bit buses
   numbered from bit 1; cabinet inputs registered in the CPU module; trivial
   functions inlined; one port per line in port lists and instances.
-- **No leftovers:** strip debug ports, bring-up logs, working notes
-  (`plan.md`), ad-hoc benches and Python/shell scripts that test the RTL.
+- **No leftovers:** strip debug ports, bring-up logs, working notes and
+  plans, ad-hoc benches and Python/shell scripts that test the RTL.
   Checks worth keeping become simunit tests (§6). `cfg/msg` follows the house
   style (title, author, what it was built from, supporter lists) and the
   README is a short board summary.
-- **Integer pixel clock enable.** Review asks for the pixel `cen` to be an
-  integer division of the base clock. Choose `JTFRAME_PLL` per target, and
-  always inside a target section: `macros.go` doesn't check the target, so
-  an unscoped PLL macro gives other boards wrong clock enables. Check the
-  PLL lock range (the SiDi128 game PLL doesn't lock above ~54 MHz) and
-  copy known pairings (`jtframe_pll7000` + `JTFRAME_180SHIFT` on MiSTer, as
-  cps3 does).
+- **Integer pixel clock enable.** Reviewers want the pixel `cen` to be an
+  integer division of the base clock. If the board's crystals don't divide
+  48 MHz, choose a `JTFRAME_PLL` whose output does, **inside a target
+  section**: `macros.go` doesn't check the target, so an unscoped PLL macro
+  gives other targets wrong clock enables. Check that the target's PLL can
+  lock at the new frequency, and copy PLL/SDRAM-clock pairings from a core
+  that already ships them (e.g. `jtframe_pll7000` + `JTFRAME_180SHIFT` on
+  MiSTer, as cps3 does).
 - Framework changes found along the way go in **separate commits**
   (`jtframe: …`) so they can be taken or dropped on their own.
 
@@ -271,20 +277,20 @@ ground truth. Work in this order and don't claim a level you didn't run.
 6. **Hardware test** (human): MiSTer/Pocket, DIP switches, inputs, audio levels,
    service mode. Request it explicitly; you cannot do it.
 
-**Lessons on what counts as evidence:**
+**What counts as evidence:**
 
 - **Only MAME is an oracle, not your own reference model.** A reference
-  renderer or C model written by the same hand as the RTL shares its
-  misreadings. On Wardner a frame diff reported 0 of 76800 pixels wrong while
-  every non-zero pen had the wrong colour. Compare against MAME's own frames,
-  audio and CPU traces early.
-- **Isolate layers when diffing** (`gfx_en`, F7–F10). A composed frame hid
-  a tile-flip fault 20× smaller than it really was because other layers
-  covered it.
-- **Test flip with the game's own flip, not a forced one.** Forcing `flip=1` on
-  a capture taken unflipped leaves scroll values the game never writes, and
-  produced a false 79×213 displacement. Set the Flip Screen DIP and let the
-  software do it.
+  renderer or C model written from the same reading of MAME as the RTL
+  shares its mistakes: a frame diff can report zero differing pixels while
+  the picture is visibly wrong. Compare against MAME's own frames, audio and
+  CPU traces early.
+- **Isolate layers when diffing** (`gfx_en`, F7–F10). In a composed frame,
+  other layers cover most of a single layer's error, so the diff
+  understates it by a large factor.
+- **Test flip with the game's own flip, not a forced one.** Forcing
+  `flip=1` on a capture taken unflipped leaves scroll values the game never
+  writes, and creates offsets that aren't real. Set the Flip Screen DIP and
+  let the software do it.
 - **Prove refactors are behaviour-neutral:** before/after, compare frame
   CRCs and `test.wav` md5 over a few hundred frames, and check generated
   files (`*_game_sdram.v`, `mem_ports.inc`) are byte-identical. `jtframe mem`
@@ -295,16 +301,17 @@ ground truth. Work in this order and don't claim a level you didn't run.
   rejects some constructs Verilator accepts (e.g. a declaration mixing
   initialised and uninitialised nets). Run both via `simunit.sh`.
 
-### Integration pitfalls (where hardware bugs slipped past passing benches)
+### Integration pitfalls (bugs that pass the benches and show up on hardware)
 
-On Wardner, every fault that reached real hardware was in the thin layer
-between a verified emulation and JTFRAME. Check these explicitly:
+The emulation logic is usually right by the time it runs; faults that reach
+hardware tend to sit in the thin layer between it and JTFRAME. Check these
+explicitly:
 
 - **DIP switches:** the dipsw bit slicing must follow MAME's port layout
   (e.g. `[7:0]` DSWA, `[15:8]` DSWB, …). Packing fields contiguously is
   invisible at factory defaults (all ones) and wrong for every OSD option.
-  Check what the MRA emits as defaults: forced `ff`, or unused bits left at
-  0, have put boards into service mode or test mode (Wardner, Sky Kid).
+  Check the defaults the MRA emits: forcing `ff`, or leaving unused bits at
+  0, can boot a board into service or test mode.
 - **Input polarity and order:** service, tilt and test inputs need the same
   inversion as the other cabinet inputs. Joystick nibbles may need reversing,
   not just permuting.
@@ -314,17 +321,17 @@ between a verified emulation and JTFRAME. Check these explicitly:
   colours are wrong.
 - **ROM offset units:** JTFRAME SDRAM slot offsets are in 16-bit words;
   computing them in 32-bit words swaps whole graphics sets between layers.
-- **MAME `init_*`/`DRIVER_INIT` functions** that rearrange ROMs (e.g.
-  `init_baraduke` splitting a plane ROM by nibble) have to be reproduced in
-  `mame2mra.toml`, or one bit plane is quietly wrong.
+- **MAME `init_*` / `DRIVER_INIT` functions** that rearrange ROMs (splitting
+  a ROM by half or by nibble, swapping address or data bits) have to be
+  reproduced in `mame2mra.toml`, or part of the graphics is quietly wrong.
 - **Readable chip registers:** a register implemented as plain RAM when the
-  chip returns live state (the CUS30 waveform position) breaks software that
-  polls it. Baraduke's music stopped when speech was due.
+  chip returns live state (a counter, a position, a status bit) breaks
+  software that polls it, often as a hang in one specific routine.
 - **Same driver, different board rules:** boards sharing a MAME driver or
-  chip set can differ in layer/sprite priority and field positions (Baraduke
-  vs namcos86). Select the behaviour with a header bit rather than assuming the
-  generic rule.
-- **Orientation:** ROT180 sets (Sky Kid) need an explicit header bit that
+  chip set can differ in layer/sprite priority and in register field
+  positions. Read the per-board code paths in the driver and select the
+  behaviour with a header bit rather than assuming the generic rule.
+- **Orientation:** sets MAME marks ROT180 need an explicit header bit that
   mirrors text flip, scroll direction and sprite positions; otherwise skip
   them in `mame2mra.toml` with a README note.
 
