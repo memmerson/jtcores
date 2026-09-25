@@ -244,6 +244,10 @@ non-draft PRs.
   module changes, say which importing cores were re-linted/re-simulated.
 - Submodule changes (`modules/jt*`) belong in their own upstream repos; here
   you only bump the submodule pointer.
+- `.gitignore` ignores most of `cores/*/ver/**` (sim outputs); `.cab`,
+  `sim.sh` and unit-test sources are re-included. After adding verification
+  files, check `git status` / `git check-ignore -v <file>` that they are
+  actually tracked.
 - Do not commit ROMs, MAME dumps of copyrighted data, generated MRA/.rom/.bin,
   or build output. Copies of MAME driver source in `cores/<core>/doc` are fine
   (existing practice) for reference.
