@@ -126,6 +126,7 @@ framerate
 /tasks
 lint
 AGENTS.md
+!/AGENTS.md
 .jtsandbox
 seed/
 scenes/
