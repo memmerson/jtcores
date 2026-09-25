@@ -83,8 +83,14 @@ the core README). Skipping it is how duplicated chips and wrong cores happen.
    ```
    Also check `skip.*` entries and each core's README "not supported" notes —
    a game may be deliberately excluded with a stated reason (see
-   `cores/harier/README.md`). Check upstream issues on `jotego/jtcores` for
-   "new core" requests and work in progress.
+   `cores/harier/README.md`). Check upstream issues **and open PRs** on
+   `jotego/jtcores` for "new core" requests and work in progress. If another
+   contributor has claimed the hardware, stop and tell the user so they can
+   coordinate before any HDL is written.
+   If the sets are missing from `doc/mame.xml`, regenerate it rather than
+   hand-editing: `mame -listxml > full.xml && jtframe mra --reduce full.xml > doc/mame.xml`
+   (keeps only machines the cores' TOML files request; check the diff is
+   additive).
 3. **Find the closest existing hardware.** Many drivers share boards or chips.
    Look for:
    - same MAME driver file or a driver that `#include`s the same device headers;
@@ -129,8 +135,9 @@ really framework-level belongs in JTFRAME, but changes to JTFRAME affect all
 Pick a short lowercase folder name (existing names are 2–7 chars, e.g.
 `harier`, `taitox`, `cps15`). Module prefix is `jt<core>_`; `CORENAME` in
 `macros.def` is `JT<CORE>` uppercase. Copy structure from the most similar
-recent core rather than from scratch — `cores/harier` is a good, heavily
-commented recent example; `cores/kicker`/`yiear` for small 8-bit boards.
+recent core rather than from scratch — `cores/harier` is a good recent
+structural example (but don't copy its comment density, see §5);
+`cores/kicker`/`yiear` for small 8-bit boards.
 
 Minimum set:
 
@@ -172,13 +179,57 @@ Minimum set:
 - Address buses are byte-referenced: 16-bit data → `addr[N:1]`, 32-bit →
   `addr[N:2]`.
 - File header: SPDX GPL-3.0-or-later, authors, date (copy from a recent file).
-- Comment **why**, citing the source: schematic sheet/designator, chip pin,
-  MAME line. Look at `cores/harier/cfg/mem.yaml` for the expected level of
-  justification of hardware constants. Mark any value that is an ear/eye trim
-  or deviates from the PCB, and make PCB-deviating options default to off.
+- **Keep code comments short.** Upstream review has repeatedly asked for
+  bring-up explanations, derivations and section separators to be removed
+  from HDL and `mame2mra.toml`. A short "why" with its source (schematic
+  designator, MAME function) is fine; the full reasoning and evidence go in
+  the **commit message**. Mark ear/eye trims and PCB deviations in one line,
+  and make PCB-deviating options default to off.
 - Debug hooks: `debug_bus` in / `debug_view` out, `gfx_en` layer enables
   (F7–F10), `st_addr`/`st_dout` for sys-info. Tie them off cleanly; they
   disappear under `JTFRAME_RELEASE`. See `doc/debug.md`.
+
+### What upstream review expects (learned from the Wardner and Baraduke reviews)
+
+These came up as review comments on submitted cores. Do them before
+submitting, not after.
+
+- **Use JTFRAME generics, adapt at the instance.** Tilemaps on
+  `jtframe_scroll`; sprite *drawing* on `jtframe_objdraw` (the core keeps
+  only its own scan); line buffers on `jtframe_obj_buffer`; interrupt edges
+  with `jtframe_edge`; Z80 through `jtframe_z80`, not `T80s` directly.
+  Absorb differences (ROM bit order, scroll offsets, flip) at the instance
+  rather than forking the generic. A `reg` array with two write ports is
+  built from logic by Quartus; the Wardner sprite buffer cost 42 % of the core
+  until it moved to `jtframe_obj_buffer`.
+- **Every RAM in `mem.yaml`** (`bram:`), including CPU work RAM, shared RAM
+  and tile/sprite/palette RAM; no hand-instantiated `jtframe_dual_ram` in
+  CPU modules. Register blocks go in `cfg/mmr.yaml`. Order `mem.yaml`
+  sections as `clocks`, `audio`, `sdram`, `bram`.
+- **Third-party CPUs/DSPs live in JTFRAME**, not as a new module or
+  submodule: HDL and licence in `hdl/cpu/<name>`, a `jtframe_<cpu>.v`
+  wrapper with the usual port names, and `cfg/cpu/jtframe_<cpu>.yaml` so a
+  core pulls it in with one line. Prefer an existing open-source core
+  (Wardner moved from a from-scratch TMS320C10 to IKA32010); mark local
+  fixes with a `jtcores:` comment and list them in the CPU's README.
+- **CPU module style:** address decoding in one `always` block with
+  `*_cs` names; the read mux as a `case`; synchronous resets; 16-bit buses
+  numbered from bit 1; cabinet inputs registered in the CPU module; trivial
+  functions inlined; one port per line in port lists and instances.
+- **No leftovers:** strip debug ports, bring-up logs, working notes
+  (`plan.md`), ad-hoc benches and Python/shell scripts that test the RTL.
+  Checks worth keeping become simunit tests (§6). `cfg/msg` follows the house
+  style (title, author, what it was built from, supporter lists) and the
+  README is a short board summary.
+- **Integer pixel clock enable.** Review asks for the pixel `cen` to be an
+  integer division of the base clock. Choose `JTFRAME_PLL` per target, and
+  always inside a target section: `macros.go` doesn't check the target, so
+  an unscoped PLL macro gives other boards wrong clock enables. Check the
+  PLL lock range (the SiDi128 game PLL doesn't lock above ~54 MHz) and
+  copy known pairings (`jtframe_pll7000` + `JTFRAME_180SHIFT` on MiSTer, as
+  cps3 does).
+- Framework changes found along the way go in **separate commits**
+  (`jtframe: …`) so they can be taken or dropped on their own.
 
 ## 6. Testing and verification
 
@@ -220,6 +271,63 @@ ground truth. Work in this order and don't claim a level you didn't run.
 6. **Hardware test** (human): MiSTer/Pocket, DIP switches, inputs, audio levels,
    service mode. Request it explicitly; you cannot do it.
 
+**Lessons on what counts as evidence:**
+
+- **Only MAME is an oracle, not your own reference model.** A reference
+  renderer or C model written by the same hand as the RTL shares its
+  misreadings. On Wardner a frame diff reported 0 of 76800 pixels wrong while
+  every non-zero pen had the wrong colour. Compare against MAME's own frames,
+  audio and CPU traces early.
+- **Isolate layers when diffing** (`gfx_en`, F7–F10). A composed frame hid
+  a tile-flip fault 20× smaller than it really was because other layers
+  covered it.
+- **Test flip with the game's own flip, not a forced one.** Forcing `flip=1` on
+  a capture taken unflipped leaves scroll values the game never writes, and
+  produced a false 79×213 displacement. Set the Flip Screen DIP and let the
+  software do it.
+- **Prove refactors are behaviour-neutral:** before/after, compare frame
+  CRCs and `test.wav` md5 over a few hundred frames, and check generated
+  files (`*_game_sdram.v`, `mem_ports.inc`) are byte-identical. `jtframe mem`
+  writes ports in nondeterministic order, so sort before comparing.
+- Keep ad-hoc benches **outside the repo** (or in an untracked folder);
+  commit only simunit tests and jtsim folders.
+- `jtcore` lints with Verilator first and stops on **any** warning; Icarus
+  rejects some constructs Verilator accepts (e.g. a declaration mixing
+  initialised and uninitialised nets). Run both via `simunit.sh`.
+
+### Integration pitfalls (where hardware bugs slipped past passing benches)
+
+On Wardner, every fault that reached real hardware was in the thin layer
+between a verified emulation and JTFRAME. Check these explicitly:
+
+- **DIP switches:** the dipsw bit slicing must follow MAME's port layout
+  (e.g. `[7:0]` DSWA, `[15:8]` DSWB, …). Packing fields contiguously is
+  invisible at factory defaults (all ones) and wrong for every OSD option.
+  Check what the MRA emits as defaults: forced `ff`, or unused bits left at
+  0, have put boards into service mode or test mode (Wardner, Sky Kid).
+- **Input polarity and order:** service, tilt and test inputs need the same
+  inversion as the other cabinet inputs. Joystick nibbles may need reversing,
+  not just permuting.
+- **Graphics bit order:** MAME's `gfx_layout` lists `planeoffset` from the
+  most significant bit down. Reading it the other way reverses pen bits.
+  Pen 0 stays transparent, so shapes and priority look right and only the
+  colours are wrong.
+- **ROM offset units:** JTFRAME SDRAM slot offsets are in 16-bit words;
+  computing them in 32-bit words swaps whole graphics sets between layers.
+- **MAME `init_*`/`DRIVER_INIT` functions** that rearrange ROMs (e.g.
+  `init_baraduke` splitting a plane ROM by nibble) have to be reproduced in
+  `mame2mra.toml`, or one bit plane is quietly wrong.
+- **Readable chip registers:** a register implemented as plain RAM when the
+  chip returns live state (the CUS30 waveform position) breaks software that
+  polls it. Baraduke's music stopped when speech was due.
+- **Same driver, different board rules:** boards sharing a MAME driver or
+  chip set can differ in layer/sprite priority and field positions (Baraduke
+  vs namcos86). Select the behaviour with a header bit rather than assuming the
+  generic rule.
+- **Orientation:** ROT180 sets (Sky Kid) need an explicit header bit that
+  mirrors text flip, scroll direction and sprite positions; otherwise skip
+  them in `mame2mra.toml` with a README note.
+
 CI on pull requests (`.github/workflows/pull-request.yaml`): beta checks,
 framework tests, Verilator/MRA lint, unit sims, then compile-all for
 non-draft PRs.
@@ -241,6 +349,10 @@ non-draft PRs.
   `cps3: avoid rendering outside of the visible area`), or conventional
   `feat(jtframe): …` / `fix(sdram): …` for framework changes. Reference issues
   as `Fixes #NNNN`.
+- Commit **bodies** carry the reasoning and evidence that the code comments
+  leave out: what was wrong, the source that settles it, and what was run
+  (frames compared, lint result, build resources/timing, hardware). When
+  addressing review, say which comment each commit answers.
 - Keep a commit scoped to one core or one framework concern. If a shared
   module changes, say which importing cores were re-linted/re-simulated.
 - Submodule changes (`modules/jt*`) belong in their own upstream repos; here
