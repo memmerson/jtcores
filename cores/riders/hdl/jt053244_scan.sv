@@ -191,7 +191,7 @@ always @(posedge clk, posedge rst) begin
                     hstep   <= 0;
                     hz_keep <= 0;
                     // if( !scan_even[15]  || scan_obj[6:0]!=2  ) begin
-                    if( !scan_even[15] `ifndef JTFRAME_RELEASE || (scan_obj[6:0]==debug_bus[6:0] && flicker) `endif ) begin
+                    if( !scan_even[15] `ifndef JTFRAME_RELEASE || (debug_bus[7] && scan_obj[6:0]==debug_bus[6:0] && flicker) `endif ) begin
                         scan_sub <= 0;
                         scan_obj <= scan_obj + 1'd1;
                         if( last_obj ) done <= 1;
