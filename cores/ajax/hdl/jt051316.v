@@ -14,6 +14,7 @@ module jt051316(
     output  [ 7:0] pxl,
     output         blnk_n,
     input          rvo, // enables blanking
+    input          wrap,
     input   [ 8:0] hdump, vdump,
 
     output  [23:0] rom_addr,
@@ -74,7 +75,7 @@ assign buf_din   = duplicate ? 8'h0 :
 assign blnk_n    = PACKED ? pxl[3:0]!=0 : pxl[6:0]!=0;
 assign rst_cnt   = vs & hs;
 assign pre_lvbl  = vdump==VB_END;
-assign duplicate = ~oblk[2] | rvo;   // According to documentation, more regs could be involved
+assign duplicate = (~oblk[2] & ~wrap) | rvo;   // According to documentation, more regs could be involved
 
 always @(*) begin
     done    = wr_addr>=RD_END;

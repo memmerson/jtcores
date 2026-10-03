@@ -128,6 +128,7 @@ jtrollerg_video u_video(
     .objreg_cs      ( objreg_cs     ),
     .psac_cs        ( psac_vr_cs    ),
     .psacreg_cs     ( psacreg_cs    ),
+    .wrap           ( wrap          ),
     .pal_dout       ( pal_dout      ),
     .obj_dout       ( obj_dout      ),
     .psac_dout      ( psac_dout     ),

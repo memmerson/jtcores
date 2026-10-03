@@ -1,13 +1,10 @@
 [parse]
 sourcefile=[ "rollerg.cpp" ]
-
-[buttons]
-names = [
-    { machine="rollerg", names="Punch,Jump" },
-]
+main="rollerg"
 
 [dipsw]
 delete=[{names=["Unused","Unknown"]}]
+rename=[ {name="Bonus Energy", values=["1/2 stage","1/4 stage","1/4 cycle","None"] } ]
 
 [ROM]
 regions = [

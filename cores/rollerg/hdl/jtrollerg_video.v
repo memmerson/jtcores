@@ -20,6 +20,7 @@ module jtrollerg_video(
     input      [ 7:0] cpu_dout,
     input             cpu_we,
     input             pal_cs, objram_cs, objreg_cs, psac_cs, psacreg_cs,
+    input             wrap,
     output     [ 7:0] pal_dout, obj_dout, psac_dout,
     output            psac_ok,
 
@@ -42,19 +43,20 @@ module jtrollerg_video(
     input      [ 7:0] debug_bus
 );
 
-wire [ 8:0] hdump, vrender, vrender1, obj_pxl;
+wire [ 8:0] hdump, vrender, vrender1, obj_pxl, obj_h;
 wire [ 7:0] psac_pxl;
 wire [15:0] obj16_dout;
 wire [ 4:0] nc;
 wire        psac_blnk_n, obj_shd, nco;
 
+assign obj_h    = hdump+9'd3;
 assign obj_dout = ~cpu_addr[0] ? obj16_dout[15:8] : obj16_dout[7:0];
 
 jtframe_vtimer #(
     .HCNT_START ( 9'h020    ),
     .HCNT_END   ( 9'h19F    ),
-    .HB_START   ( 9'h029-9'd16 ),
-    .HB_END     ( 9'h069+9'd16 ),
+    .HB_START   ( 9'h199     ),
+    .HB_END     ( 9'h079     ),
     .HS_START   ( 9'h034    ),
 
     .V_START    ( 9'h0F8    ),
@@ -78,7 +80,7 @@ jtframe_vtimer #(
     .VS         ( vs        )
 );
 
-jt051316 #(.BPP(4)) u_psac(
+jt051316 #(.BPP(4),.RD_DLY(9'h020),.VB_END(9'h110)) u_psac(
     .rst        ( rst       ),
     .clk        ( clk       ),
     .pxl_cen    ( pxl_cen   ),
@@ -96,6 +98,7 @@ jt051316 #(.BPP(4)) u_psac(
     .vr_cs      ( psac_cs   ),
     .io_cs      ( psacreg_cs),
     .rvo        ( 1'b0      ),
+    .wrap       ( wrap      ),
     .hdump      ( hdump     ),
     .vdump      ( vdump     ),
 
@@ -126,8 +129,8 @@ jtriders_obj #(
 
     .hs         ( hs        ),
     .lvbl       ( lvbl      ),
-    .hdump      ( hdump     ),
-    .vdump      ( vrender   ),
+    .hdump      ( obj_h     ),
+    .vdump      ( vdump     ),
 
     .ram_cs     ( objram_cs ),
     .ram_addr   ({2'd0,cpu_addr[10:1]}),
