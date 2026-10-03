@@ -30,8 +30,17 @@ parameter [8:0] WR_STRT=9'h060, // Positions in wr_addr skipped during blanking
                 RST_CT =9'h058, // starting value for wr_addr
                 RD_DLY =9'h00B, // number of times to delay hdump
                 RD_END =9'h19F; // Value of rd_addr when LHBL goes low
+// Pixel depth in the zoom ROM
+//   7: one pixel per byte (Ajax). pxl = { rom_addr[19], rom_data[6:0] }
+//   4: two pixels per byte, even x in the upper nibble (MAME charlayout4).
+//      pxl = { gfx_addr[23:20], nibble }, i.e. the top half of the color byte.
+//      CPU ROM reads also see a halved address, as in MAME k051316::rom_r
+parameter BPP=7;
 
-wire [23:0] xcnt, ycnt, gfx_addr;
+localparam PACKED = BPP==4;
+
+wire [23:0] xcnt, ycnt, gfx_addr, pre_addr;
+wire [ 3:0] nibble;
 wire [15:0] scan_dout;
 wire [ 9:0] vaddr;
 wire [ 8:0] wr_addr, rd_addr;
@@ -48,7 +57,9 @@ reg         hs_l, hs_cen, cnt_cen, done;
 assign we        ={cpu_addr[10],~cpu_addr[10]} & {2{cpu_we & vr_cs}};
 assign cpu_din   = cpu_addr[10] ? cpu_ram2 : cpu_ram1;
 assign ioctl_din = ioctl_addr[10] ? scan_dout[15:8] : scan_dout[7:0];
-assign rom_addr  =  rmrd_n ? gfx_addr : { ckbank, cpu_addr };
+assign pre_addr  =  rmrd_n ? gfx_addr : { ckbank, cpu_addr };
+assign rom_addr  =  PACKED ? { 1'b0, pre_addr[23:1] } : pre_addr;
+assign nibble    =  gfx_addr[0] ? rom_data[3:0] : rom_data[7:4];
 assign rom_cs    =  rmrd_n |  vr_cs;
 assign cpu_ok    =  rmrd_n | ~vr_cs | rom_ok;
 assign vflip     = vflip_en & scan_dout[15];
@@ -57,8 +68,10 @@ assign vf        = {4{vflip}} ^ ycnt[14:11];
 assign hf        = {4{hflip}} ^ xcnt[14:11];
 assign gfx_addr  = { scan_dout, vf, hf };
 assign vaddr     = {ycnt[19:15],xcnt[19:15]};
-assign buf_din   = duplicate ? 8'h0 : { rom_addr[19], rom_data[6:0] };
-assign blnk_n    = pxl[6:0]!=0;
+assign buf_din   = duplicate ? 8'h0 :
+                   PACKED    ? { gfx_addr[23:20], nibble } :
+                               { rom_addr[19], rom_data[6:0] };
+assign blnk_n    = PACKED ? pxl[3:0]!=0 : pxl[6:0]!=0;
 assign rst_cnt   = vs & hs;
 assign pre_lvbl  = vdump==VB_END;
 assign duplicate = ~oblk[2] | rvo;   // According to documentation, more regs could be involved
